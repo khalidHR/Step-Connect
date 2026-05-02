@@ -39,7 +39,11 @@ export function FriendsStrip({ user, friends }: FriendsStripProps) {
     })),
   ].sort((a, b) => b.steps - a.steps);
 
-  const leaderId = entries[0]?.id;
+  const leader = entries[0];
+  const rest = entries.slice(1);
+
+  const fmtSteps = (n: number) =>
+    n >= 1000 ? `${(n / 1000).toFixed(1)}k` : n.toString();
 
   return (
     <ScrollView
@@ -47,59 +51,76 @@ export function FriendsStrip({ user, friends }: FriendsStripProps) {
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.strip}
     >
-      {entries.map((entry) => {
-        const isLeader = entry.id === leaderId;
-        return (
-          <View key={entry.id} style={styles.avatar}>
-            {isLeader && (
-              <Text style={styles.crown}>👑</Text>
-            )}
-            <View
-              style={[
-                styles.circle,
-                {
-                  backgroundColor: entry.color,
-                  borderWidth: entry.isMe ? 2.5 : isLeader ? 2.5 : 0,
-                  borderColor: entry.isMe
-                    ? colors.primary
-                    : isLeader
-                    ? "#f59e0b"
-                    : "transparent",
-                },
-              ]}
-            >
-              <Text style={[styles.initials, { fontFamily: "Inter_700Bold" }]}>
-                {entry.initials}
-              </Text>
-            </View>
-            <Text
-              style={[
-                styles.name,
-                {
-                  color: entry.isMe ? colors.primary : colors.foreground,
-                  fontFamily: entry.isMe ? "Inter_600SemiBold" : "Inter_400Regular",
-                },
-              ]}
-              numberOfLines={1}
-            >
-              {entry.name}
-            </Text>
-            <Text
-              style={[
-                styles.steps,
-                {
-                  color: isLeader ? "#f59e0b" : colors.mutedForeground,
-                  fontFamily: isLeader ? "Inter_700Bold" : "Inter_500Medium",
-                },
-              ]}
-            >
-              {entry.steps >= 1000
-                ? `${(entry.steps / 1000).toFixed(1)}k`
-                : entry.steps.toString()}
+      {/* Leader — elevated above the rest */}
+      <View style={styles.leaderSlot}>
+        <Text style={styles.crown}>👑</Text>
+        <View
+          style={[
+            styles.leaderCircle,
+            {
+              backgroundColor: leader.color,
+              borderWidth: leader.isMe ? 3 : 2.5,
+              borderColor: leader.isMe ? colors.primary : "#f59e0b",
+            },
+          ]}
+        >
+          <Text style={[styles.leaderInitials, { fontFamily: "Inter_700Bold" }]}>
+            {leader.initials}
+          </Text>
+        </View>
+        <Text
+          style={[styles.leaderName, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}
+          numberOfLines={1}
+        >
+          {leader.name}
+        </Text>
+        <Text style={[styles.leaderSteps, { color: "#f59e0b", fontFamily: "Inter_700Bold" }]}>
+          {fmtSteps(leader.steps)}
+        </Text>
+      </View>
+
+      {/* Spacer between leader and rest */}
+      <View style={styles.gap} />
+
+      {/* Vertical line separating leader from pack */}
+      <View style={[styles.vertLine, { backgroundColor: colors.border }]} />
+
+      <View style={styles.gap} />
+
+      {/* Rest — all on the same baseline */}
+      {rest.map((entry) => (
+        <View key={entry.id} style={styles.restSlot}>
+          <View
+            style={[
+              styles.restCircle,
+              {
+                backgroundColor: entry.color,
+                borderWidth: entry.isMe ? 2.5 : 0,
+                borderColor: entry.isMe ? colors.primary : "transparent",
+              },
+            ]}
+          >
+            <Text style={[styles.restInitials, { fontFamily: "Inter_700Bold" }]}>
+              {entry.initials}
             </Text>
           </View>
-        );
-      })}
+          <Text
+            style={[
+              styles.restName,
+              {
+                color: entry.isMe ? colors.primary : colors.foreground,
+                fontFamily: entry.isMe ? "Inter_600SemiBold" : "Inter_400Regular",
+              },
+            ]}
+            numberOfLines={1}
+          >
+            {entry.name}
+          </Text>
+          <Text style={[styles.restSteps, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
+            {fmtSteps(entry.steps)}
+          </Text>
+        </View>
+      ))}
     </ScrollView>
   );
 }
@@ -107,35 +128,68 @@ export function FriendsStrip({ user, friends }: FriendsStripProps) {
 const styles = StyleSheet.create({
   strip: {
     paddingHorizontal: 20,
-    gap: 18,
+    alignItems: "flex-end",
     paddingBottom: 4,
   },
-  avatar: {
+  leaderSlot: {
     alignItems: "center",
-    gap: 5,
-    width: 60,
+    gap: 4,
   },
   crown: {
-    fontSize: 14,
-    lineHeight: 18,
+    fontSize: 16,
+    lineHeight: 20,
   },
-  circle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+  leaderCircle: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
     alignItems: "center",
     justifyContent: "center",
   },
-  initials: {
+  leaderInitials: {
     color: "#fff",
-    fontSize: 16,
+    fontSize: 19,
   },
-  name: {
-    fontSize: 11,
-    textAlign: "center",
-  },
-  steps: {
+  leaderName: {
     fontSize: 12,
+    maxWidth: 68,
     textAlign: "center",
+  },
+  leaderSteps: {
+    fontSize: 13,
+  },
+  gap: {
+    width: 14,
+  },
+  vertLine: {
+    width: 1,
+    height: 44,
+    alignSelf: "flex-end",
+    marginBottom: 26,
+  },
+  restSlot: {
+    alignItems: "center",
+    gap: 4,
+    marginLeft: 14,
+    marginBottom: 4,
+  },
+  restCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  restInitials: {
+    color: "#fff",
+    fontSize: 14,
+  },
+  restName: {
+    fontSize: 10,
+    maxWidth: 50,
+    textAlign: "center",
+  },
+  restSteps: {
+    fontSize: 11,
   },
 });

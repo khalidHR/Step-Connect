@@ -246,6 +246,7 @@ interface UserContextType {
   removeFriend: (friendId: string) => void;
   toggleWheelchairMode: () => void;
   refreshHealthData: () => Promise<void>;
+  setGoal: (goal: number) => void;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -411,6 +412,17 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     });
   }, [friends, availableFriends, saveSettings]);
 
+  const setGoal = useCallback(
+    (goal: number) => {
+      setUser((prev) => {
+        const next = { ...prev, steps: { ...prev.steps, goal } };
+        saveSettings(friends, availableFriends, next.isWheelchairMode, goal);
+        return next;
+      });
+    },
+    [friends, availableFriends, saveSettings]
+  );
+
   return (
     <UserContext.Provider
       value={{
@@ -422,6 +434,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         removeFriend,
         toggleWheelchairMode,
         refreshHealthData,
+        setGoal,
       }}
     >
       {children}
