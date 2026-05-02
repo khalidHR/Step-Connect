@@ -1,0 +1,142 @@
+✅ 1. Professional BRD – StepConnect (Refined from Social Steps concept)
+1. Business Overview
+
+StepConnect is a mobile-first social fitness application that transforms daily walking into an engaging and competitive experience. The system tracks user steps automatically and connects users with friends to participate in challenges and leaderboards.
+
+The platform focuses on motivation through social interaction, making fitness simple, fun, and accessible.
+
+2. Business Problem
+
+Many individuals struggle to maintain consistent physical activity due to:
+
+Lack of motivation
+Absence of social accountability
+Boring or complex fitness applications
+Limited feedback on performance
+
+Existing solutions either focus on tracking or social interaction, but not both in a simple and engaging way.
+
+3. Business Objectives
+Encourage daily movement through social competition
+Provide automatic step tracking without user effort
+Create a community-driven fitness experience
+Improve engagement using leaderboards and challenges
+Deliver a simple and accessible user experience
+4. Key Features (From Real Analysis)
+
+Based on your extracted data:
+
+Core Features:
+Automatic step tracking (no manual setup)
+Social connection with friends
+Leaderboard ranking system
+Competitive challenges
+Advanced Features:
+Integration with wearable devices (Fitbit, Garmin)
+Inclusive design (Wheelchair mode with adjusted calculation)
+User Flow:
+Download & Sign Up
+Connect with friends
+Start tracking and competing
+5. Scope
+In Scope:
+Step tracking (Apple Health integration)
+Leaderboard system
+Friend connections
+Basic dashboards (daily/weekly stats)
+Simple challenges
+Out of Scope:
+Messaging system
+Advanced AI recommendations
+Multi-platform full support (PoC phase)
+6. Functional Requirements
+
+The system must:
+
+Automatically retrieve step data
+Allow users to connect with others
+Rank users based on daily steps
+Display leaderboard dynamically
+Support basic challenges between users
+Show progress in simple dashboards
+7. Non-Functional Requirements
+Usability: Very simple interface (no learning curve)
+Performance: Real-time or near real-time updates
+Reliability: Accurate step synchronization
+Accessibility: Support different user conditions (e.g., wheelchair mode)
+Scalability: Support increasing users over time
+8. Business Value (This is your differentiator ⚠️)
+
+This system provides value by:
+
+Turning fitness into a social activity
+Increasing consistency through competition psychology
+Removing friction (automatic tracking)
+Supporting inclusivity in fitness tracking
+
+👉 This part is what most students MISS.
+
+9. Assumptions
+Users allow access to step data
+Users are willing to connect socially
+Mobile device sensors are accurate
+10. Constraints
+Limited to iOS (PoC phase)
+Dependency on external APIs (Apple Health / wearables)
+Limited dataset for testing real competition
+11. Success Criteria
+Users can track steps automatically
+Leaderboard updates correctly
+Social interaction increases engagement
+System is easy to use without guidance
+🔥 Now the important part you asked for:
+✅ 2. Prompt for Replit AI (VERY strong, structured)
+
+Use this exactly 👇
+
+Replit AI Prompt
+
+Build a full-stack mobile-first application called StepConnect, a social fitness tracking system.
+
+The system should include:
+
+Frontend:
+Use Flutter (preferred) OR simple web UI if needed
+Clean, modern, minimal design
+Screens:
+Dashboard (daily steps)
+Leaderboard (rank users)
+Friends list
+Reports (weekly/monthly)
+Backend:
+Use Laravel (PHP) OR Python (FastAPI)
+Provide REST API endpoints:
+Get user steps
+Get leaderboard
+Add/Connect friends
+Generate reports
+Database:
+MySQL
+Tables:
+users
+steps
+friendships
+leaderboard
+Core Features:
+Automatically simulate or fetch step data
+Rank users by daily steps
+Highlight top user
+Simple dashboard with stats
+Logic:
+Leaderboard sorted by step count
+Daily reset or tracking
+Simulated data if real API not available
+Requirements:
+Clean code structure
+Modular design
+Simple API responses (JSON)
+Easy to expand later
+Optional:
+Add mock AI recommendation function (suggest most active user)
+
+The goal is to build a Proof of Concept, not a full production system.
