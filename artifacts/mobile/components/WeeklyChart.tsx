@@ -9,48 +9,38 @@ interface WeeklyChartProps {
   height?: number;
 }
 
-const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
-export function WeeklyChart({ data, goal = 10000, height = 140 }: WeeklyChartProps) {
+export function WeeklyChart({ data, goal = 10000, height = 110 }: WeeklyChartProps) {
   const colors = useColors();
-  const maxValue = Math.max(...data, goal, 1);
+  const maxVal = Math.max(...data, goal, 1);
+  const todayIdx = new Date().getDay();
+  const adjustedTodayIdx = todayIdx === 0 ? 6 : todayIdx - 1;
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.chartArea, { height }]}>
-        {data.map((value, index) => {
-          const barHeight = (value / maxValue) * (height - 24);
-          const isToday = index === data.length - 1;
-          const metGoal = value >= goal;
-          const barColor = metGoal ? colors.primary : isToday ? colors.secondary : colors.muted;
-          const valueColor = metGoal ? colors.primary : isToday ? colors.foreground : colors.mutedForeground;
+    <View style={styles.wrapper}>
+      <View style={[styles.chartRow, { height }]}>
+        {data.map((val, i) => {
+          const barH = Math.max((val / maxVal) * (height - 30), 4);
+          const isToday = i === adjustedTodayIdx;
+          const metGoal = val >= goal;
+          const isFuture = i > adjustedTodayIdx;
 
           return (
-            <View key={index} style={styles.barGroup}>
-              <Text
-                style={[
-                  styles.barValue,
-                  {
-                    color: valueColor,
-                    fontFamily: "Inter_500Medium",
-                    opacity: value === 0 ? 0 : 1,
-                  },
-                ]}
-              >
-                {value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value}
-              </Text>
-              <View style={styles.barWrapper}>
+            <View key={i} style={styles.barCol}>
+              <View style={[styles.barTrack, { height: height - 28 }]}>
                 <View
                   style={[
                     styles.bar,
                     {
-                      height: Math.max(barHeight, 4),
+                      height: isFuture ? 4 : barH,
                       backgroundColor: metGoal
                         ? colors.primary
                         : isToday
                         ? colors.accent
                         : colors.muted,
                       borderWidth: isToday ? 0 : 0,
+                      opacity: isFuture ? 0.25 : 1,
                     },
                   ]}
                 />
@@ -60,76 +50,42 @@ export function WeeklyChart({ data, goal = 10000, height = 140 }: WeeklyChartPro
                   styles.dayLabel,
                   {
                     color: isToday ? colors.primary : colors.mutedForeground,
-                    fontFamily: isToday ? "Inter_600SemiBold" : "Inter_400Regular",
+                    fontFamily: isToday ? "Inter_700Bold" : "Inter_400Regular",
+                    fontSize: isToday ? 12 : 11,
                   },
                 ]}
               >
-                {DAYS[index]}
+                {DAYS[i]}
               </Text>
             </View>
           );
         })}
-      </View>
-
-      <View
-        style={[styles.goalLine, { borderColor: colors.primary + "40" }]}
-      >
-        <Text
-          style={[
-            styles.goalLabel,
-            { color: colors.primary, fontFamily: "Inter_500Medium" },
-          ]}
-        >
-          Goal: {(goal / 1000).toFixed(0)}k
-        </Text>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    position: "relative",
-  },
-  chartArea: {
+  wrapper: {},
+  chartRow: {
     flexDirection: "row",
     alignItems: "flex-end",
     gap: 6,
-    paddingBottom: 24,
   },
-  barGroup: {
+  barCol: {
     flex: 1,
     alignItems: "center",
-    gap: 4,
+    gap: 6,
   },
-  barValue: {
-    fontSize: 9,
-  },
-  barWrapper: {
-    flex: 1,
+  barTrack: {
     width: "100%",
     justifyContent: "flex-end",
+    alignItems: "center",
   },
   bar: {
     width: "100%",
-    borderRadius: 6,
+    borderRadius: 8,
     minHeight: 4,
   },
-  dayLabel: {
-    fontSize: 11,
-    position: "absolute",
-    bottom: 0,
-  },
-  goalLine: {
-    position: "absolute",
-    bottom: 24,
-    right: 0,
-    borderTopWidth: 1,
-    borderStyle: "dashed",
-    paddingTop: 2,
-  },
-  goalLabel: {
-    fontSize: 10,
-    textAlign: "right",
-  },
+  dayLabel: {},
 });

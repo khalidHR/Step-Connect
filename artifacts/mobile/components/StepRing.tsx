@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
+import Svg, { Circle, Path } from "react-native-svg";
 
 import { useColors } from "@/hooks/useColors";
 
@@ -10,11 +11,24 @@ interface StepRingProps {
   strokeWidth?: number;
 }
 
+function polarToCartesian(cx: number, cy: number, r: number, angleDeg: number) {
+  const rad = ((angleDeg - 90) * Math.PI) / 180;
+  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+}
+
+function describeArc(cx: number, cy: number, r: number, endAngle: number): string {
+  const clamped = Math.min(endAngle, 359.99);
+  const start = polarToCartesian(cx, cy, r, 0);
+  const end = polarToCartesian(cx, cy, r, clamped);
+  const largeArc = clamped > 180 ? 1 : 0;
+  return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 1 ${end.x} ${end.y}`;
+}
+
 export function StepRing({
   steps,
   goal,
-  size = 220,
-  strokeWidth = 18,
+  size = 240,
+  strokeWidth = 22,
 }: StepRingProps) {
   const colors = useColors();
   const progress = Math.min(steps / goal, 1);
@@ -24,96 +38,59 @@ export function StepRing({
     Animated.spring(animatedProgress, {
       toValue: progress,
       useNativeDriver: false,
-      tension: 40,
-      friction: 8,
+      tension: 35,
+      friction: 9,
     }).start();
   }, [progress]);
 
-  const radius = (size - strokeWidth) / 2;
-  const center = size / 2;
-  const innerSize = size - strokeWidth * 2 - 24;
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = (size - strokeWidth) / 2;
+  const pct = Math.round(progress * 100);
 
-  const segments = 48;
-  const activeSegments = Math.floor(progress * segments);
+  const arcPath = progress > 0 ? describeArc(cx, cy, r, progress * 359.99) : null;
 
   return (
-    <View style={[styles.container, { width: size, height: size }]}>
-      <View
-        style={[
-          styles.track,
-          {
-            width: size,
-            height: size,
-            borderRadius: size / 2,
-            borderWidth: strokeWidth,
-            borderColor: colors.muted,
-          },
-        ]}
-      />
-      {Array.from({ length: activeSegments }).map((_, i) => {
-        const angle = (i / segments) * 360 - 90;
-        const rad = (angle * Math.PI) / 180;
-        const x = center + radius * Math.cos(rad) - strokeWidth / 2;
-        const y = center + radius * Math.sin(rad) - strokeWidth / 2;
-        const opacity = 0.4 + (i / segments) * 0.6;
-        return (
-          <View
-            key={i}
-            style={[
-              styles.dot,
-              {
-                width: strokeWidth,
-                height: strokeWidth,
-                borderRadius: strokeWidth / 2,
-                backgroundColor: colors.primary,
-                left: x,
-                top: y,
-                opacity,
-              },
-            ]}
+    <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
+      <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
+        {/* Track */}
+        <Circle
+          cx={cx}
+          cy={cy}
+          r={r}
+          stroke={colors.muted}
+          strokeWidth={strokeWidth}
+          fill="none"
+          strokeLinecap="round"
+        />
+        {/* Progress arc */}
+        {arcPath && (
+          <Path
+            d={arcPath}
+            stroke={colors.primary}
+            strokeWidth={strokeWidth}
+            fill="none"
+            strokeLinecap="round"
           />
-        );
-      })}
-      <View
-        style={[
-          styles.innerCircle,
-          {
-            width: innerSize,
-            height: innerSize,
-            borderRadius: innerSize / 2,
-            backgroundColor: colors.background,
-          },
-        ]}
-      >
+        )}
+      </Svg>
+
+      <View style={styles.center}>
         <Text
-          style={[
-            styles.stepCount,
-            { color: colors.foreground, fontFamily: "Inter_700Bold" },
-          ]}
+          style={[styles.stepCount, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
         >
           {steps.toLocaleString()}
         </Text>
         <Text
-          style={[
-            styles.stepLabel,
-            { color: colors.mutedForeground, fontFamily: "Inter_500Medium" },
-          ]}
+          style={[styles.goalLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}
         >
-          steps today
+          of {goal.toLocaleString()} steps
         </Text>
-        <View
-          style={[styles.badge, { backgroundColor: colors.accent }]}
-        >
-          <Text
-            style={[
-              styles.badgeText,
-              {
-                color: colors.accentForeground,
-                fontFamily: "Inter_600SemiBold",
-              },
-            ]}
-          >
-            {Math.round(progress * 100)}%
+        <View style={[styles.pctBadge, { backgroundColor: colors.accent }]}>
+          <Text style={[styles.pctText, { color: colors.primary, fontFamily: "Inter_700Bold" }]}>
+            {pct}%
           </Text>
         </View>
       </View>
@@ -122,36 +99,26 @@ export function StepRing({
 }
 
 const styles = StyleSheet.create({
-  container: {
+  center: {
     alignItems: "center",
-    justifyContent: "center",
-    position: "relative",
-  },
-  track: {
-    position: "absolute",
-  },
-  dot: {
-    position: "absolute",
-  },
-  innerCircle: {
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 2,
+    gap: 4,
+    paddingHorizontal: 20,
   },
   stepCount: {
-    fontSize: 40,
-    lineHeight: 46,
+    fontSize: 44,
+    lineHeight: 50,
+    letterSpacing: -1,
   },
-  stepLabel: {
+  goalLabel: {
     fontSize: 13,
   },
-  badge: {
+  pctBadge: {
     marginTop: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
     borderRadius: 20,
   },
-  badgeText: {
-    fontSize: 13,
+  pctText: {
+    fontSize: 14,
   },
 });
