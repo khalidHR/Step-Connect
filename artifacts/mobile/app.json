@@ -14,9 +14,16 @@
       "backgroundColor": "#0a1628"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSMotionUsageDescription": "StepConnect uses your motion data to track your daily steps and compete with friends.",
+        "NSHealthShareUsageDescription": "StepConnect reads your step count from Apple Health to power your leaderboard and reports.",
+        "NSHealthUpdateUsageDescription": "StepConnect may write workout summaries to Apple Health."
+      }
     },
-    "android": {},
+    "android": {
+      "permissions": ["android.permission.ACTIVITY_RECOGNITION"]
+    },
     "web": {
       "favicon": "./assets/images/icon.png"
     },

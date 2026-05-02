@@ -1,6 +1,7 @@
 import * as Haptics from "expo-haptics";
 import React from "react";
 import {
+  ActivityIndicator,
   Platform,
   Pressable,
   ScrollView,
@@ -19,7 +20,7 @@ const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 export default function DashboardScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user, addSteps } = useUser();
+  const { user, healthStatus, refreshHealthData } = useUser();
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 + 84 : 100;
@@ -29,10 +30,12 @@ export default function DashboardScreen() {
   const todayIdx = new Date().getDay();
   const dayName = DAYS[todayIdx === 0 ? 6 : todayIdx - 1];
 
-  const handleAddSteps = async (amount: number) => {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    addSteps(amount);
+  const handleRefresh = async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    await refreshHealthData();
   };
+
+  const isLoading = healthStatus === "checking";
 
   return (
     <ScrollView
@@ -62,56 +65,55 @@ export default function DashboardScreen() {
             StepConnect
           </Text>
         </View>
-        <View style={[styles.streakBadge, { backgroundColor: colors.accent }]}>
-          <Text style={styles.streakFire}>🔥</Text>
-          <Text
-            style={[
-              styles.streakCount,
-              {
-                color: colors.accentForeground,
-                fontFamily: "Inter_700Bold",
-              },
-            ]}
-          >
-            {user.steps.streak}
-          </Text>
-          <Text
-            style={[
-              styles.streakLabel,
-              { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
-            ]}
-          >
-            day streak
-          </Text>
+        <View style={styles.headerRight}>
+          {user.steps.streak > 0 && (
+            <View style={[styles.streakBadge, { backgroundColor: colors.accent }]}>
+              <Text style={styles.streakFire}>🔥</Text>
+              <Text
+                style={[
+                  styles.streakCount,
+                  { color: colors.accentForeground, fontFamily: "Inter_700Bold" },
+                ]}
+              >
+                {user.steps.streak}
+              </Text>
+              <Text
+                style={[
+                  styles.streakLabel,
+                  { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
+                ]}
+              >
+                day streak
+              </Text>
+            </View>
+          )}
         </View>
       </View>
 
-      <View style={styles.ringContainer}>
-        <StepRing
-          steps={user.steps.today}
-          goal={user.steps.goal}
-          size={230}
-          strokeWidth={20}
-        />
-      </View>
+      <HealthStatusBanner status={healthStatus} onRefresh={handleRefresh} colors={colors} />
+
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+            Reading from Apple Health…
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.ringContainer}>
+          <StepRing
+            steps={user.steps.today}
+            goal={user.steps.goal}
+            size={230}
+            strokeWidth={20}
+          />
+        </View>
+      )}
 
       <View style={styles.statsRow}>
-        <StatCard
-          label="Distance"
-          value={`${kmWalked} km`}
-          colors={colors}
-          accent
-        />
-        <StatCard
-          label="Calories"
-          value={`${calBurned}`}
-          colors={colors}
-        />
-        <StatCard
-          label="Goal"
-          value={user.steps.goal.toLocaleString()}
-          colors={colors}
-        />
+        <StatCard label="Distance" value={`${kmWalked} km`} colors={colors} accent />
+        <StatCard label="Calories" value={`${calBurned} kcal`} colors={colors} />
+        <StatCard label="Goal" value={user.steps.goal.toLocaleString()} colors={colors} />
       </View>
 
       {user.isWheelchairMode && (
@@ -127,51 +129,23 @@ export default function DashboardScreen() {
         </View>
       )}
 
-      <View style={styles.section}>
-        <Text
-          style={[
-            styles.sectionTitle,
-            { color: colors.foreground, fontFamily: "Inter_600SemiBold" },
+      {healthStatus === "available" && (
+        <Pressable
+          onPress={handleRefresh}
+          style={({ pressed }) => [
+            styles.refreshBtn,
+            {
+              backgroundColor: pressed ? colors.secondary : colors.muted,
+              opacity: pressed ? 0.8 : 1,
+              borderColor: colors.border,
+            },
           ]}
         >
-          Add Steps
-        </Text>
-        <Text
-          style={[
-            styles.sectionSubtitle,
-            { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
-          ]}
-        >
-          Simulate activity or log manual steps
-        </Text>
-        <View style={styles.addStepsRow}>
-          {[100, 500, 1000, 2000].map((amount) => (
-            <Pressable
-              key={amount}
-              onPress={() => handleAddSteps(amount)}
-              style={({ pressed }) => [
-                styles.addBtn,
-                {
-                  backgroundColor: pressed ? colors.primary : colors.accent,
-                  opacity: pressed ? 0.9 : 1,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.addBtnText,
-                  {
-                    color: colors.primary,
-                    fontFamily: "Inter_600SemiBold",
-                  },
-                ]}
-              >
-                +{amount}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      </View>
+          <Text style={[styles.refreshBtnText, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
+            ↻  Refresh from Apple Health
+          </Text>
+        </Pressable>
+      )}
 
       <View
         style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}
@@ -186,7 +160,7 @@ export default function DashboardScreen() {
         </Text>
         <View style={styles.weekRow}>
           {user.steps.weekly.map((steps, index) => {
-            const isToday = index === user.steps.weekly.length - 1;
+            const isToday = index === (todayIdx === 0 ? 6 : todayIdx - 1);
             const metGoal = steps >= user.steps.goal;
             return (
               <View key={index} style={styles.dayCell}>
@@ -199,7 +173,7 @@ export default function DashboardScreen() {
                     },
                   ]}
                 >
-                  {steps >= 1000 ? `${(steps / 1000).toFixed(1)}k` : steps}
+                  {steps >= 1000 ? `${(steps / 1000).toFixed(1)}k` : steps || "–"}
                 </Text>
                 <View
                   style={[
@@ -219,12 +193,8 @@ export default function DashboardScreen() {
                   style={[
                     styles.dayCellLabel,
                     {
-                      color: isToday
-                        ? colors.primary
-                        : colors.mutedForeground,
-                      fontFamily: isToday
-                        ? "Inter_600SemiBold"
-                        : "Inter_400Regular",
+                      color: isToday ? colors.primary : colors.mutedForeground,
+                      fontFamily: isToday ? "Inter_600SemiBold" : "Inter_400Regular",
                     },
                   ]}
                 >
@@ -237,6 +207,50 @@ export default function DashboardScreen() {
       </View>
     </ScrollView>
   );
+}
+
+function HealthStatusBanner({
+  status,
+  onRefresh,
+  colors,
+}: {
+  status: string;
+  onRefresh: () => void;
+  colors: ReturnType<typeof import("@/hooks/useColors").useColors>;
+}) {
+  if (status === "available" || status === "checking") return null;
+
+  if (status === "web") {
+    return (
+      <View style={[styles.banner, { backgroundColor: colors.secondary }]}>
+        <Text style={[styles.bannerText, { color: colors.secondaryForeground, fontFamily: "Inter_500Medium" }]}>
+          📱 Open on iPhone with Expo Go to connect Apple Health
+        </Text>
+      </View>
+    );
+  }
+
+  if (status === "unavailable") {
+    return (
+      <View style={[styles.banner, { backgroundColor: "#fef3c7" }]}>
+        <Text style={[styles.bannerText, { color: "#92400e", fontFamily: "Inter_500Medium" }]}>
+          ⚠️ Step tracking not available on this device
+        </Text>
+      </View>
+    );
+  }
+
+  if (status === "denied") {
+    return (
+      <Pressable onPress={onRefresh} style={[styles.banner, { backgroundColor: "#fef3c7" }]}>
+        <Text style={[styles.bannerText, { color: "#92400e", fontFamily: "Inter_500Medium" }]}>
+          ⚠️ Motion access denied — tap to retry or enable in Settings → Privacy → Motion & Fitness
+        </Text>
+      </Pressable>
+    );
+  }
+
+  return null;
 }
 
 function StatCard({
@@ -254,7 +268,10 @@ function StatCard({
     <View
       style={[
         statStyles.card,
-        { backgroundColor: accent ? colors.accent : colors.card, borderColor: colors.border },
+        {
+          backgroundColor: accent ? colors.accent : colors.card,
+          borderColor: colors.border,
+        },
       ]}
     >
       <Text
@@ -291,32 +308,30 @@ const statStyles = StyleSheet.create({
     gap: 2,
   },
   value: {
-    fontSize: 18,
+    fontSize: 16,
   },
   label: {
     fontSize: 11,
+    textAlign: "center",
   },
 });
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   content: {
     paddingHorizontal: 20,
-    gap: 20,
+    gap: 16,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  greeting: {
-    fontSize: 14,
+  headerRight: {
+    alignItems: "flex-end",
   },
-  title: {
-    fontSize: 26,
-  },
+  greeting: { fontSize: 14 },
+  title: { fontSize: 26 },
   streakBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -325,18 +340,24 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     gap: 4,
   },
-  streakFire: {
-    fontSize: 16,
+  streakFire: { fontSize: 16 },
+  streakCount: { fontSize: 18 },
+  streakLabel: { fontSize: 12 },
+  banner: {
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
-  streakCount: {
-    fontSize: 18,
+  bannerText: { fontSize: 13, lineHeight: 18 },
+  loadingContainer: {
+    alignItems: "center",
+    paddingVertical: 60,
+    gap: 16,
   },
-  streakLabel: {
-    fontSize: 12,
-  },
+  loadingText: { fontSize: 14 },
   ringContainer: {
     alignItems: "center",
-    paddingVertical: 10,
+    paddingVertical: 6,
   },
   statsRow: {
     flexDirection: "row",
@@ -347,56 +368,35 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 12,
   },
-  modeBannerText: {
-    fontSize: 13,
+  modeBannerText: { fontSize: 13 },
+  refreshBtn: {
+    alignItems: "center",
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
   },
+  refreshBtnText: { fontSize: 14 },
   section: {
     borderRadius: 16,
     borderWidth: 1,
     padding: 16,
-    gap: 10,
+    gap: 12,
   },
-  sectionTitle: {
-    fontSize: 16,
-  },
-  sectionSubtitle: {
-    fontSize: 13,
-    marginTop: -6,
-  },
-  addStepsRow: {
-    flexDirection: "row",
-    gap: 10,
-    flexWrap: "wrap",
-  },
-  addBtn: {
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 12,
-    flex: 1,
-    alignItems: "center",
-  },
-  addBtnText: {
-    fontSize: 15,
-  },
+  sectionTitle: { fontSize: 16 },
   weekRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingTop: 4,
   },
   dayCell: {
     alignItems: "center",
     gap: 6,
     flex: 1,
   },
-  dayCellSteps: {
-    fontSize: 11,
-  },
+  dayCellSteps: { fontSize: 11 },
   dayCellDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
   },
-  dayCellLabel: {
-    fontSize: 12,
-  },
+  dayCellLabel: { fontSize: 12 },
 });

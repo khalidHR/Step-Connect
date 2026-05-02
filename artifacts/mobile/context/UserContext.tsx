@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Pedometer } from "expo-sensors";
 import React, {
   createContext,
   useCallback,
@@ -7,22 +8,20 @@ import React, {
   useRef,
   useState,
 } from "react";
-
-export interface StepData {
-  today: number;
-  goal: number;
-  weekly: number[];
-  monthly: number;
-  streak: number;
-}
+import { Platform } from "react-native";
 
 export interface Friend {
   id: string;
   name: string;
   initials: string;
   color: string;
-  steps: StepData;
-  isWheelchairMode?: boolean;
+  steps: {
+    today: number;
+    goal: number;
+    weekly: number[];
+    monthly: number;
+    streak: number;
+  };
 }
 
 export interface User {
@@ -30,18 +29,22 @@ export interface User {
   name: string;
   initials: string;
   color: string;
-  steps: StepData;
   isWheelchairMode: boolean;
+  steps: {
+    today: number;
+    goal: number;
+    weekly: number[];
+    monthly: number;
+    streak: number;
+  };
 }
 
-const AVATAR_COLORS = [
-  "#16a34a",
-  "#0284c7",
-  "#7c3aed",
-  "#db2777",
-  "#ea580c",
-  "#0891b2",
-];
+export type HealthStatus =
+  | "checking"
+  | "available"
+  | "unavailable"
+  | "denied"
+  | "web";
 
 const MOCK_FRIENDS: Friend[] = [
   {
@@ -140,76 +143,146 @@ const AVAILABLE_FRIENDS: Friend[] = [
   },
 ];
 
-interface UserContextType {
-  user: User;
-  friends: Friend[];
-  availableFriends: Friend[];
-  addSteps: (amount: number) => void;
-  addFriend: (friend: Friend) => void;
-  removeFriend: (friendId: string) => void;
-  toggleWheelchairMode: () => void;
-}
-
-const UserContext = createContext<UserContextType | undefined>(undefined);
-
-const STORAGE_KEY = "@stepconnect_data";
-
-const defaultUser: User = {
+const DEFAULT_USER: User = {
   id: "me",
   name: "You",
   initials: "ME",
   color: "#16a34a",
   isWheelchairMode: false,
   steps: {
-    today: 4280,
+    today: 0,
     goal: 10000,
-    weekly: [6200, 8100, 9400, 7300, 5800, 6900, 4280],
-    monthly: 245000,
-    streak: 9,
+    weekly: [0, 0, 0, 0, 0, 0, 0],
+    monthly: 0,
+    streak: 0,
   },
 };
 
+function startOfDay(date: Date): Date {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function daysAgo(n: number): Date {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d;
+}
+
+async function fetchWeeklySteps(): Promise<number[]> {
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+
+  const results: number[] = [];
+
+  for (let i = mondayOffset; i >= 0; i--) {
+    const dayDate = daysAgo(i);
+    const start = startOfDay(dayDate);
+    const end = i === 0 ? today : new Date(start.getTime() + 86400000 - 1);
+    try {
+      const result = await Pedometer.getStepCountAsync(start, end);
+      results.push(result.steps);
+    } catch {
+      results.push(0);
+    }
+  }
+
+  const daysLeft = 7 - results.length;
+  return [...results, ...Array(daysLeft).fill(0)];
+}
+
+async function fetchMonthlySteps(): Promise<number> {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  try {
+    const result = await Pedometer.getStepCountAsync(start, now);
+    return result.steps;
+  } catch {
+    return 0;
+  }
+}
+
+async function calculateStreak(): Promise<number> {
+  let streak = 0;
+  let i = 0;
+  const GOAL = 10000;
+
+  while (true) {
+    const day = daysAgo(i);
+    const start = startOfDay(day);
+    const end =
+      i === 0
+        ? new Date()
+        : new Date(start.getTime() + 86400000 - 1);
+    try {
+      const result = await Pedometer.getStepCountAsync(start, end);
+      if (result.steps >= GOAL) {
+        streak++;
+        i++;
+      } else if (i === 0) {
+        i++;
+      } else {
+        break;
+      }
+    } catch {
+      break;
+    }
+    if (i > 60) break;
+  }
+
+  return streak;
+}
+
+const STORAGE_KEY = "@stepconnect_settings";
+
+interface UserContextType {
+  user: User;
+  friends: Friend[];
+  availableFriends: Friend[];
+  healthStatus: HealthStatus;
+  addFriend: (friend: Friend) => void;
+  removeFriend: (friendId: string) => void;
+  toggleWheelchairMode: () => void;
+  refreshHealthData: () => Promise<void>;
+}
+
+const UserContext = createContext<UserContextType | undefined>(undefined);
+
 export function UserProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User>(defaultUser);
+  const [user, setUser] = useState<User>(DEFAULT_USER);
   const [friends, setFriends] = useState<Friend[]>(MOCK_FRIENDS);
   const [availableFriends, setAvailableFriends] =
     useState<Friend[]>(AVAILABLE_FRIENDS);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [healthStatus, setHealthStatus] = useState<HealthStatus>("checking");
+  const subscriptionRef = useRef<ReturnType<typeof Pedometer.watchStepCount> | null>(null);
 
   useEffect(() => {
-    loadData();
-    startAutoTracking();
+    loadSettings();
+    initHealthTracking();
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      subscriptionRef.current?.remove();
     };
   }, []);
 
-  const startAutoTracking = () => {
-    intervalRef.current = setInterval(() => {
-      const increment = Math.floor(Math.random() * 8) + 2;
-      setUser((prev) => {
-        const newToday = prev.steps.today + increment;
-        const newWeekly = [...prev.steps.weekly];
-        newWeekly[newWeekly.length - 1] = newToday;
-        return {
-          ...prev,
-          steps: {
-            ...prev.steps,
-            today: newToday,
-            weekly: newWeekly,
-            monthly: prev.steps.monthly + increment,
-          },
-        };
-      });
-    }, 3000);
-  };
-
-  const loadData = async () => {
+  const loadSettings = async () => {
     try {
       const saved = await AsyncStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.user) setUser(parsed.user);
+        if (parsed.goal) {
+          setUser((prev) => ({
+            ...prev,
+            steps: { ...prev.steps, goal: parsed.goal },
+          }));
+        }
+        if (parsed.isWheelchairMode !== undefined) {
+          setUser((prev) => ({
+            ...prev,
+            isWheelchairMode: parsed.isWheelchairMode,
+          }));
+        }
         if (parsed.friends) setFriends(parsed.friends);
         if (parsed.availableFriends)
           setAvailableFriends(parsed.availableFriends);
@@ -217,50 +290,100 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   };
 
-  const saveData = useCallback(
-    async (updatedUser: User, updatedFriends: Friend[]) => {
+  const initHealthTracking = async () => {
+    if (Platform.OS === "web") {
+      setHealthStatus("web");
+      return;
+    }
+
+    try {
+      const isAvailable = await Pedometer.isAvailableAsync();
+      if (!isAvailable) {
+        setHealthStatus("unavailable");
+        return;
+      }
+
+      setHealthStatus("available");
+      await loadRealHealthData();
+
+      subscriptionRef.current = Pedometer.watchStepCount((result) => {
+        setUser((prev) => {
+          const multiplier = prev.isWheelchairMode ? 1.3 : 1;
+          const adjustedSteps = Math.round(result.steps * multiplier);
+          const newWeekly = [...prev.steps.weekly];
+          const todayIdx = new Date().getDay();
+          const idx = todayIdx === 0 ? 6 : todayIdx - 1;
+          newWeekly[idx] = adjustedSteps;
+          return {
+            ...prev,
+            steps: {
+              ...prev.steps,
+              today: adjustedSteps,
+              weekly: newWeekly,
+            },
+          };
+        });
+      });
+    } catch {
+      setHealthStatus("denied");
+    }
+  };
+
+  const loadRealHealthData = async () => {
+    const [todayResult, weeklyData, monthlySteps, streak] = await Promise.all([
+      Pedometer.getStepCountAsync(startOfDay(new Date()), new Date()),
+      fetchWeeklySteps(),
+      fetchMonthlySteps(),
+      calculateStreak(),
+    ]);
+
+    setUser((prev) => {
+      const multiplier = prev.isWheelchairMode ? 1.3 : 1;
+      return {
+        ...prev,
+        steps: {
+          ...prev.steps,
+          today: Math.round(todayResult.steps * multiplier),
+          weekly: weeklyData.map((s) => Math.round(s * multiplier)),
+          monthly: Math.round(monthlySteps * multiplier),
+          streak,
+        },
+      };
+    });
+  };
+
+  const refreshHealthData = useCallback(async () => {
+    if (healthStatus !== "available") return;
+    await loadRealHealthData();
+  }, [healthStatus]);
+
+  const saveSettings = useCallback(
+    async (
+      updatedFriends: Friend[],
+      updatedAvailable: Friend[],
+      isWheelchairMode: boolean,
+      goal: number
+    ) => {
       try {
         await AsyncStorage.setItem(
           STORAGE_KEY,
-          JSON.stringify({ user: updatedUser, friends: updatedFriends }),
+          JSON.stringify({ friends: updatedFriends, availableFriends: updatedAvailable, isWheelchairMode, goal })
         );
       } catch {}
     },
-    [],
-  );
-
-  const addSteps = useCallback(
-    (amount: number) => {
-      setUser((prev) => {
-        const newToday = prev.steps.today + amount;
-        const newWeekly = [...prev.steps.weekly];
-        newWeekly[newWeekly.length - 1] = newToday;
-        const updated = {
-          ...prev,
-          steps: {
-            ...prev.steps,
-            today: newToday,
-            weekly: newWeekly,
-            monthly: prev.steps.monthly + amount,
-          },
-        };
-        saveData(updated, friends);
-        return updated;
-      });
-    },
-    [friends, saveData],
+    []
   );
 
   const addFriend = useCallback(
     (friend: Friend) => {
       setFriends((prev) => {
         const updated = [...prev, friend];
-        saveData(user, updated);
+        saveSettings(updated, availableFriends.filter((f) => f.id !== friend.id), user.isWheelchairMode, user.steps.goal);
         return updated;
       });
       setAvailableFriends((prev) => prev.filter((f) => f.id !== friend.id));
     },
-    [user, saveData],
+    [availableFriends, user, saveSettings]
   );
 
   const removeFriend = useCallback(
@@ -268,17 +391,25 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setFriends((prev) => {
         const removed = prev.find((f) => f.id === friendId);
         const updated = prev.filter((f) => f.id !== friendId);
-        if (removed) setAvailableFriends((af) => [...af, removed]);
-        saveData(user, updated);
+        const newAvailable = removed ? [...availableFriends, removed] : availableFriends;
+        saveSettings(updated, newAvailable, user.isWheelchairMode, user.steps.goal);
         return updated;
       });
+      setAvailableFriends((prev) => {
+        const removed = friends.find((f) => f.id === friendId);
+        return removed ? [...prev, removed] : prev;
+      });
     },
-    [user, saveData],
+    [friends, availableFriends, user, saveSettings]
   );
 
   const toggleWheelchairMode = useCallback(() => {
-    setUser((prev) => ({ ...prev, isWheelchairMode: !prev.isWheelchairMode }));
-  }, []);
+    setUser((prev) => {
+      const next = { ...prev, isWheelchairMode: !prev.isWheelchairMode };
+      saveSettings(friends, availableFriends, next.isWheelchairMode, next.steps.goal);
+      return next;
+    });
+  }, [friends, availableFriends, saveSettings]);
 
   return (
     <UserContext.Provider
@@ -286,10 +417,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         user,
         friends,
         availableFriends,
-        addSteps,
+        healthStatus,
         addFriend,
         removeFriend,
         toggleWheelchairMode,
+        refreshHealthData,
       }}
     >
       {children}

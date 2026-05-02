@@ -14,13 +14,25 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useUser } from "@/context/UserContext";
 import { useColors } from "@/hooks/useColors";
 
+function healthStatusLabel(status: string) {
+  switch (status) {
+    case "available": return { label: "Connected", color: "#16a34a", icon: "✅" };
+    case "checking": return { label: "Checking…", color: "#94a3b8", icon: "⏳" };
+    case "denied": return { label: "Access denied", color: "#ef4444", icon: "❌" };
+    case "unavailable": return { label: "Not available", color: "#f59e0b", icon: "⚠️" };
+    case "web": return { label: "iOS only", color: "#94a3b8", icon: "📱" };
+    default: return { label: "Unknown", color: "#94a3b8", icon: "?" };
+  }
+}
+
 export default function SettingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user, toggleWheelchairMode } = useUser();
+  const { user, healthStatus, toggleWheelchairMode, refreshHealthData } = useUser();
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 + 84 : 100;
+  const healthInfo = healthStatusLabel(healthStatus);
 
   const handleToggleWheelchair = async () => {
     await Haptics.selectionAsync();
@@ -52,144 +64,125 @@ export default function SettingsScreen() {
           </Text>
         </View>
         <View style={styles.profileInfo}>
-          <Text
-            style={[
-              styles.profileName,
-              { color: colors.foreground, fontFamily: "Inter_700Bold" },
-            ]}
-          >
+          <Text style={[styles.profileName, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
             {user.name}
           </Text>
-          <Text
-            style={[
-              styles.profileSub,
-              { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
-            ]}
-          >
+          <Text style={[styles.profileSub, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
             Daily goal: {user.steps.goal.toLocaleString()} steps
           </Text>
         </View>
       </View>
 
-      <View
-        style={[
-          styles.section,
-          { backgroundColor: colors.card, borderColor: colors.border },
-        ]}
-      >
-        <Text
-          style={[
-            styles.sectionTitle,
-            { color: colors.mutedForeground, fontFamily: "Inter_500Medium" },
-          ]}
-        >
+      <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.sectionLabel, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
+          APPLE HEALTH
+        </Text>
+        <View style={styles.row}>
+          <View style={styles.rowLeft}>
+            <Text style={[styles.rowIcon]}>{healthInfo.icon}</Text>
+            <View style={styles.rowInfo}>
+              <Text style={[styles.rowTitle, { color: colors.foreground, fontFamily: "Inter_500Medium" }]}>
+                Health Integration
+              </Text>
+              <Text style={[styles.rowSub, { color: healthInfo.color, fontFamily: "Inter_400Regular" }]}>
+                {healthInfo.label}
+              </Text>
+            </View>
+          </View>
+          {healthStatus === "available" && (
+            <Pressable
+              onPress={async () => {
+                await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                await refreshHealthData();
+              }}
+              style={({ pressed }) => [
+                styles.actionBtn,
+                { backgroundColor: pressed ? colors.secondary : colors.muted, opacity: pressed ? 0.7 : 1 },
+              ]}
+            >
+              <Text style={[styles.actionBtnText, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
+                Refresh
+              </Text>
+            </Pressable>
+          )}
+        </View>
+        {healthStatus === "denied" && (
+          <View style={[styles.permissionNote, { backgroundColor: "#fef3c7" }]}>
+            <Text style={[styles.permissionNoteText, { color: "#92400e", fontFamily: "Inter_400Regular" }]}>
+              Go to Settings → Privacy & Security → Motion & Fitness → enable StepConnect (or Expo Go)
+            </Text>
+          </View>
+        )}
+        {healthStatus === "web" && (
+          <View style={[styles.permissionNote, { backgroundColor: colors.muted }]}>
+            <Text style={[styles.permissionNoteText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+              Apple Health integration is only available when running on iPhone via Expo Go.
+            </Text>
+          </View>
+        )}
+      </View>
+
+      <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.sectionLabel, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
           ACCESSIBILITY
         </Text>
-
         <View style={styles.row}>
-          <View style={styles.rowInfo}>
-            <Text
-              style={[
-                styles.rowLabel,
-                { color: colors.foreground, fontFamily: "Inter_500Medium" },
-              ]}
-            >
-              Wheelchair Mode
-            </Text>
-            <Text
-              style={[
-                styles.rowSub,
-                { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
-              ]}
-            >
-              Adjusts step calculations for wheelchair users
-            </Text>
+          <View style={styles.rowLeft}>
+            <Text style={styles.rowIcon}>♿</Text>
+            <View style={styles.rowInfo}>
+              <Text style={[styles.rowTitle, { color: colors.foreground, fontFamily: "Inter_500Medium" }]}>
+                Wheelchair Mode
+              </Text>
+              <Text style={[styles.rowSub, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+                Applies a push multiplier to step counts
+              </Text>
+            </View>
           </View>
           <Switch
             value={user.isWheelchairMode}
             onValueChange={handleToggleWheelchair}
             trackColor={{ false: colors.muted, true: colors.primary }}
-            thumbColor={"#fff"}
+            thumbColor="#fff"
           />
         </View>
       </View>
 
-      <View
-        style={[
-          styles.section,
-          { backgroundColor: colors.card, borderColor: colors.border },
-        ]}
-      >
-        <Text
-          style={[
-            styles.sectionTitle,
-            { color: colors.mutedForeground, fontFamily: "Inter_500Medium" },
-          ]}
-        >
+      <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.sectionLabel, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
           ABOUT
         </Text>
-
         {[
-          { label: "Version", value: "1.0.0 (PoC)" },
+          { label: "App", value: "StepConnect v1.0" },
           { label: "Platform", value: Platform.OS },
-          { label: "Tracking", value: "Simulated" },
-        ].map((item, i) => (
+          { label: "Step Source", value: healthStatus === "available" ? "Apple Health" : "N/A" },
+          { label: "Goal", value: `${user.steps.goal.toLocaleString()} steps/day` },
+        ].map((item, i, arr) => (
           <View
             key={i}
             style={[
               styles.row,
-              i < 2 && { borderBottomWidth: 1, borderBottomColor: colors.border },
+              i < arr.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border },
             ]}
           >
-            <Text
-              style={[
-                styles.rowLabel,
-                { color: colors.foreground, fontFamily: "Inter_500Medium" },
-              ]}
-            >
+            <Text style={[styles.rowTitle, { color: colors.foreground, fontFamily: "Inter_500Medium" }]}>
               {item.label}
             </Text>
-            <Text
-              style={[
-                styles.rowValue,
-                { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
-              ]}
-            >
+            <Text style={[styles.rowSub, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
               {item.value}
             </Text>
           </View>
         ))}
       </View>
 
-      <View
-        style={[
-          styles.infoBox,
-          { backgroundColor: colors.accent, borderColor: colors.primary + "30" },
-        ]}
-      >
-        <Text
-          style={[
-            styles.infoBoxTitle,
-            { color: colors.accentForeground, fontFamily: "Inter_600SemiBold" },
-          ]}
-        >
-          About StepConnect
+      <View style={[styles.infoBox, { backgroundColor: colors.accent, borderColor: colors.primary + "30" }]}>
+        <Text style={[styles.infoTitle, { color: colors.accentForeground, fontFamily: "Inter_600SemiBold" }]}>
+          How it works
         </Text>
-        <Text
-          style={[
-            styles.infoBoxText,
-            { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
-          ]}
-        >
-          StepConnect transforms daily walking into a social, competitive fitness experience. Connect with friends, track your progress, and stay motivated through friendly competition.
+        <Text style={[styles.infoText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+          StepConnect reads your step data directly from Apple Health via the CoreMotion Pedometer. Your data stays on your device — it is never sent anywhere.
         </Text>
-        <Text
-          style={[
-            styles.infoBoxNote,
-            { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
-          ]}
-        >
-          This is a Proof of Concept with simulated step data. Full Apple Health integration available in production builds.
+        <Text style={[styles.infoText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+          Friends' step counts are simulated for the PoC. A production build would connect to a shared backend where friends opt-in to share their stats.
         </Text>
       </View>
     </ScrollView>
@@ -197,9 +190,7 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   content: {
     paddingHorizontal: 20,
     gap: 16,
@@ -227,63 +218,64 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 22,
   },
-  profileInfo: {
-    gap: 4,
-  },
-  profileName: {
-    fontSize: 20,
-  },
-  profileSub: {
-    fontSize: 14,
-  },
+  profileInfo: { gap: 4 },
+  profileName: { fontSize: 20 },
+  profileSub: { fontSize: 14 },
   section: {
     borderRadius: 16,
     borderWidth: 1,
     overflow: "hidden",
+    padding: 16,
+    gap: 12,
   },
-  sectionTitle: {
+  sectionLabel: {
     fontSize: 12,
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 8,
     letterSpacing: 0.5,
   },
   row: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    justifyContent: "space-between",
     gap: 12,
+    paddingVertical: 4,
   },
-  rowInfo: {
+  rowLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
     flex: 1,
-    gap: 2,
   },
-  rowLabel: {
-    fontSize: 15,
+  rowIcon: {
+    fontSize: 20,
+    width: 28,
+    textAlign: "center",
   },
-  rowSub: {
+  rowInfo: { flex: 1, gap: 2 },
+  rowTitle: { fontSize: 15 },
+  rowSub: { fontSize: 13 },
+  actionBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+  },
+  actionBtnText: { fontSize: 13 },
+  permissionNote: {
+    borderRadius: 10,
+    padding: 12,
+  },
+  permissionNoteText: {
     fontSize: 12,
-  },
-  rowValue: {
-    fontSize: 14,
+    lineHeight: 18,
   },
   infoBox: {
     borderRadius: 16,
     borderWidth: 1,
     padding: 18,
-    gap: 8,
+    gap: 10,
   },
-  infoBoxTitle: {
-    fontSize: 15,
-  },
-  infoBoxText: {
+  infoTitle: { fontSize: 15 },
+  infoText: {
     fontSize: 13,
     lineHeight: 20,
-  },
-  infoBoxNote: {
-    fontSize: 11,
-    lineHeight: 17,
-    fontStyle: "italic",
   },
 });
