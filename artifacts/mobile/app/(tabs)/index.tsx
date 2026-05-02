@@ -1,5 +1,6 @@
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
+import { router } from "expo-router";
 import React from "react";
 import {
   ActivityIndicator,
@@ -15,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FriendsStrip } from "@/components/FriendsStrip";
 import { StepRing } from "@/components/StepRing";
 import { WeeklyChart } from "@/components/WeeklyChart";
+import { useI18n } from "@/context/I18nContext";
 import { useUser } from "@/context/UserContext";
 import { useColors } from "@/hooks/useColors";
 
@@ -22,9 +24,10 @@ export default function DashboardScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user, friends, healthStatus, refreshHealthData } = useUser();
+  const { t, isRTL } = useI18n();
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
-  const bottomPad = Platform.OS === "web" ? 34 + 84 : 100;
+  const bottomPad = Platform.OS === "web" ? 34 : insets.bottom + 16;
 
   const kmWalked = ((user.steps.today * 0.762) / 1000).toFixed(2);
   const calBurned = Math.round(user.steps.today * 0.04);
@@ -35,300 +38,247 @@ export default function DashboardScreen() {
     await refreshHealthData();
   };
 
+  const goTo = async (route: string) => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push(route as any);
+  };
+
   const today = new Date();
-  const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const dateStr = `${dayNames[today.getDay()]}, ${monthNames[today.getMonth()]} ${today.getDate()}`;
+  const dayNames = isRTL
+    ? ["الأحد","الإثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"]
+    : ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  const monthNames = isRTL
+    ? ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"]
+    : ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const dateStr = isRTL
+    ? `${today.getDate()} ${monthNames[today.getMonth()]}`
+    : `${dayNames[today.getDay()]}, ${monthNames[today.getMonth()]} ${today.getDate()}`;
+
+  const totalWeekly = user.steps.weekly.reduce((s, n) => s + n, 0);
+  const goalsHit = user.steps.weekly.filter((s) => s >= user.steps.goal).length;
+
+  const topFriend = [...friends].sort((a, b) => b.steps.today - a.steps.today)[0];
+  const userLeads = !topFriend || user.steps.today >= topFriend.steps.today;
+  const leadLabel = userLeads
+    ? t("youLead")
+    : t("isLeading", { name: topFriend.name.split(" ")[0] });
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={{ paddingBottom: bottomPad }}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Header */}
-      <LinearGradient
-        colors={[colors.primary + "18", colors.background]}
-        style={[styles.headerGradient, { paddingTop: topPad + 12 }]}
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: bottomPad }}
       >
-        <View style={styles.headerRow}>
-          <View>
-            <Text style={[styles.dateLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-              {dateStr}
-            </Text>
-            <Text style={[styles.appName, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-              StepConnect
-            </Text>
+        <LinearGradient
+          colors={[colors.primary + "20", colors.background]}
+          style={[styles.hero, { paddingTop: topPad + 12 }]}
+        >
+          {/* Header row */}
+          <View style={[styles.headerRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+            <View>
+              <Text style={[styles.dateLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular", textAlign: isRTL ? "right" : "left" }]}>
+                {dateStr}
+              </Text>
+              <Text style={[styles.appName, { color: colors.foreground, fontFamily: "Inter_700Bold", textAlign: isRTL ? "right" : "left" }]}>
+                {t("appName")}
+              </Text>
+            </View>
+            <View style={[styles.headerActions, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+              {user.steps.streak > 0 && (
+                <View style={[styles.streakPill, { backgroundColor: colors.accent }]}>
+                  <Text style={styles.streakFire}>🔥</Text>
+                  <Text style={[styles.streakNum, { color: colors.accentForeground, fontFamily: "Inter_700Bold" }]}>
+                    {user.steps.streak}
+                  </Text>
+                </View>
+              )}
+              <Pressable
+                onPress={() => goTo("/settings")}
+                style={({ pressed }) => [
+                  styles.settingsBtn,
+                  { backgroundColor: pressed ? colors.muted : colors.card, borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
+                ]}
+                hitSlop={8}
+              >
+                <Text style={styles.settingsIcon}>⚙️</Text>
+              </Pressable>
+            </View>
           </View>
-          <View style={styles.headerRight}>
-            {user.steps.streak > 0 && (
-              <View style={[styles.streakPill, { backgroundColor: colors.accent }]}>
-                <Text style={styles.streakFire}>🔥</Text>
-                <Text style={[styles.streakNum, { color: colors.accentForeground, fontFamily: "Inter_700Bold" }]}>
-                  {user.steps.streak}
-                </Text>
-                <Text style={[styles.streakDay, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-                  days
-                </Text>
-              </View>
-            )}
+
+          {/* Health banner */}
+          {(healthStatus === "web" || healthStatus === "denied" || healthStatus === "unavailable") && (
+            <Pressable
+              onPress={handleRefresh}
+              style={[styles.banner, { backgroundColor: healthStatus === "denied" ? "#fef3c7" : colors.muted }]}
+            >
+              <Text style={[styles.bannerText, { color: healthStatus === "denied" ? "#92400e" : colors.mutedForeground, fontFamily: "Inter_400Regular", textAlign: isRTL ? "right" : "left" }]}>
+                {healthStatus === "web" ? `📱 ${t("scanQRPhone")}` : `⚠️ ${t("motionDenied")}`}
+              </Text>
+            </Pressable>
+          )}
+
+          {/* Ring */}
+          {isLoading ? (
+            <View style={styles.loadingArea}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={[styles.loadingText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+                Connecting to Apple Health…
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.ringArea}>
+              <StepRing steps={user.steps.today} goal={user.steps.goal} size={248} strokeWidth={22} />
+            </View>
+          )}
+
+          {/* Stats row */}
+          <View style={[styles.statsRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+            <StatChip icon="🚶" label={t("distance")} value={`${kmWalked} km`} colors={colors} isRTL={isRTL} />
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <StatChip icon="🔥" label={t("calories")} value={`${calBurned}`} colors={colors} isRTL={isRTL} />
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <StatChip icon="🎯" label={t("goal")} value={user.steps.goal >= 1000 ? `${(user.steps.goal / 1000).toFixed(0)}k` : `${user.steps.goal}`} colors={colors} isRTL={isRTL} />
           </View>
+        </LinearGradient>
+
+        {/* Quick nav row */}
+        <View style={[styles.navRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+          {[
+            { icon: "🏆", label: t("leaderboard"), route: "/leaderboard", color: "#f59e0b" },
+            { icon: "👥", label: t("friends"), route: "/friends", color: colors.primary },
+            { icon: "📊", label: t("reports"), route: "/reports", color: "#6366f1" },
+          ].map((item) => (
+            <Pressable
+              key={item.route}
+              onPress={() => goTo(item.route)}
+              style={({ pressed }) => [
+                styles.navCard,
+                { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.8 : 1, transform: [{ scale: pressed ? 0.96 : 1 }] },
+              ]}
+            >
+              <Text style={styles.navIcon}>{item.icon}</Text>
+              <Text style={[styles.navLabel, { color: colors.foreground, fontFamily: "Inter_600SemiBold", textAlign: "center" }]}>
+                {item.label}
+              </Text>
+            </Pressable>
+          ))}
         </View>
 
-        {/* Status banner */}
-        {(healthStatus === "web" || healthStatus === "denied" || healthStatus === "unavailable") && (
+        {/* Friends strip */}
+        {friends.length > 0 && (
+          <View style={styles.section}>
+            <View style={[styles.sectionHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+              <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_600SemiBold", textAlign: isRTL ? "right" : "left" }]}>
+                {t("friendsToday")}
+              </Text>
+              <Text style={[styles.sectionSub, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+                {leadLabel}
+              </Text>
+            </View>
+            <FriendsStrip user={user} friends={friends} />
+          </View>
+        )}
+
+        {/* Weekly chart card */}
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border, marginHorizontal: 20, marginTop: 16 }]}>
+          <View style={[styles.cardHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+            <View>
+              <Text style={[styles.cardTitle, { color: colors.foreground, fontFamily: "Inter_600SemiBold", textAlign: isRTL ? "right" : "left" }]}>
+                {t("thisWeek")}
+              </Text>
+              <Text style={[styles.cardSub, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+                {totalWeekly.toLocaleString()} {t("totalSteps")}
+              </Text>
+            </View>
+            <View style={[styles.goalsChip, { backgroundColor: goalsHit >= 5 ? colors.accent : colors.muted }]}>
+              <Text style={[styles.goalsChipText, { color: goalsHit >= 5 ? colors.primary : colors.mutedForeground, fontFamily: "Inter_600SemiBold" }]}>
+                {goalsHit} / 7 {t("goalsHit")}
+              </Text>
+            </View>
+          </View>
+          <WeeklyChart data={user.steps.weekly} goal={user.steps.goal} height={110} />
+        </View>
+
+        {/* Wheelchair mode notice */}
+        {user.isWheelchairMode && (
+          <View style={[styles.modeBanner, { backgroundColor: colors.secondary, marginHorizontal: 20, marginTop: 12 }]}>
+            <Text style={[styles.modeBannerText, { color: colors.secondaryForeground, fontFamily: "Inter_500Medium", textAlign: isRTL ? "right" : "left" }]}>
+              ♿ {t("wheelchairActive")}
+            </Text>
+          </View>
+        )}
+
+        {healthStatus === "available" && (
           <Pressable
             onPress={handleRefresh}
-            style={[styles.statusBanner, { backgroundColor: healthStatus === "denied" ? "#fef3c7" : colors.muted }]}
+            style={({ pressed }) => [
+              styles.refreshBtn,
+              { marginHorizontal: 20, marginTop: 12, borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
+            ]}
           >
-            <Text style={[styles.statusText, { color: healthStatus === "denied" ? "#92400e" : colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-              {healthStatus === "web"
-                ? "📱 Scan QR with Expo Go on iPhone for real step data"
-                : healthStatus === "denied"
-                ? "⚠️ Motion access denied — tap to retry"
-                : "⚠️ Step tracking not available on this device"}
+            <Text style={[styles.refreshText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+              ↻  {t("refreshHealth")}
             </Text>
           </Pressable>
         )}
-
-        {/* Step ring */}
-        {isLoading ? (
-          <View style={styles.loadingArea}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={[styles.loadingText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-              Connecting to Apple Health…
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.ringArea}>
-            <StepRing
-              steps={user.steps.today}
-              goal={user.steps.goal}
-              size={248}
-              strokeWidth={22}
-            />
-          </View>
-        )}
-
-        {/* Quick stats row */}
-        <View style={styles.statsRow}>
-          <StatChip icon="🚶" label="Distance" value={`${kmWalked} km`} colors={colors} />
-          <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-          <StatChip icon="🔥" label="Calories" value={`${calBurned}`} colors={colors} />
-          <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-          <StatChip icon="🎯" label="Goal" value={user.steps.goal >= 1000 ? `${(user.steps.goal / 1000).toFixed(0)}k` : `${user.steps.goal}`} colors={colors} />
-        </View>
-      </LinearGradient>
-
-      {/* Friends leaderboard strip */}
-      {friends.length > 0 && (
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
-              Friends Today
-            </Text>
-            <Text style={[styles.sectionSub, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-              {[...friends, { steps: { today: user.steps.today } }].sort((a, b) => b.steps.today - a.steps.today)[0] === friends[0]
-                ? `${friends[0].name.split(" ")[0]} is leading`
-                : "You're in the lead!"}
-            </Text>
-          </View>
-          <FriendsStrip user={user} friends={friends} />
-        </View>
-      )}
-
-      {/* Weekly activity chart */}
-      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border, marginHorizontal: 20 }]}>
-        <View style={styles.cardHeader}>
-          <View>
-            <Text style={[styles.cardTitle, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]}>
-              This Week
-            </Text>
-            <Text style={[styles.cardSub, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-              {user.steps.weekly.reduce((s, n) => s + n, 0).toLocaleString()} total steps
-            </Text>
-          </View>
-          <View style={[styles.weekBadge, { backgroundColor: user.steps.weekly.filter(s => s >= user.steps.goal).length >= 5 ? colors.accent : colors.muted }]}>
-            <Text style={[styles.weekBadgeText, { color: user.steps.weekly.filter(s => s >= user.steps.goal).length >= 5 ? colors.primary : colors.mutedForeground, fontFamily: "Inter_600SemiBold" }]}>
-              {user.steps.weekly.filter(s => s >= user.steps.goal).length} / 7 goals
-            </Text>
-          </View>
-        </View>
-        <WeeklyChart data={user.steps.weekly} goal={user.steps.goal} height={120} />
-      </View>
-
-      {/* Wheelchair mode notice */}
-      {user.isWheelchairMode && (
-        <View style={[styles.modeBanner, { backgroundColor: colors.secondary, marginHorizontal: 20 }]}>
-          <Text style={[styles.modeBannerText, { color: colors.secondaryForeground, fontFamily: "Inter_500Medium" }]}>
-            ♿ Wheelchair mode active — push multiplier applied
-          </Text>
-        </View>
-      )}
-
-      {/* Refresh button */}
-      {healthStatus === "available" && (
-        <Pressable
-          onPress={handleRefresh}
-          style={({ pressed }) => [
-            styles.refreshBtn,
-            { backgroundColor: pressed ? colors.muted : "transparent", marginHorizontal: 20, borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
-          ]}
-        >
-          <Text style={[styles.refreshText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-            ↻  Refresh from Apple Health
-          </Text>
-        </Pressable>
-      )}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
-function StatChip({
-  icon,
-  label,
-  value,
-  colors,
-}: {
-  icon: string;
-  label: string;
-  value: string;
+function StatChip({ icon, label, value, colors, isRTL }: {
+  icon: string; label: string; value: string;
   colors: ReturnType<typeof import("@/hooks/useColors").useColors>;
+  isRTL: boolean;
 }) {
   return (
     <View style={styles.statChip}>
       <Text style={styles.statIcon}>{icon}</Text>
-      <Text style={[styles.statValue, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-        {value}
-      </Text>
-      <Text style={[styles.statLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-        {label}
-      </Text>
+      <Text style={[styles.statValue, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>{value}</Text>
+      <Text style={[styles.statLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>{label}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-
-  /* Header / ring zone */
-  headerGradient: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    gap: 4,
-  },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 4,
-  },
-  headerRight: { alignItems: "flex-end" },
+  root: { flex: 1 },
+  hero: { paddingHorizontal: 20, paddingBottom: 20, gap: 8 },
+  headerRow: { alignItems: "center", justifyContent: "space-between", marginBottom: 4 },
+  headerActions: { alignItems: "center", gap: 10 },
   dateLabel: { fontSize: 13 },
   appName: { fontSize: 26 },
-  streakPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 20,
-    gap: 4,
-  },
-  streakFire: { fontSize: 15 },
-  streakNum: { fontSize: 18 },
-  streakDay: { fontSize: 12 },
-
-  statusBanner: {
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginBottom: 4,
-  },
-  statusText: { fontSize: 13, lineHeight: 18 },
-
-  ringArea: {
-    alignItems: "center",
-    paddingVertical: 12,
-  },
-  loadingArea: {
-    alignItems: "center",
-    paddingVertical: 60,
-    gap: 14,
-  },
+  streakPill: { flexDirection: "row", alignItems: "center", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, gap: 4 },
+  streakFire: { fontSize: 14 },
+  streakNum: { fontSize: 16 },
+  settingsBtn: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center", borderWidth: 1, shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
+  settingsIcon: { fontSize: 18 },
+  banner: { borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 },
+  bannerText: { fontSize: 13, lineHeight: 18 },
+  ringArea: { alignItems: "center", paddingVertical: 6 },
+  loadingArea: { alignItems: "center", paddingVertical: 60, gap: 14 },
   loadingText: { fontSize: 14 },
-
-  statsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-around",
-    marginTop: 4,
-  },
-  statChip: {
-    flex: 1,
-    alignItems: "center",
-    gap: 3,
-  },
+  statsRow: { alignItems: "center", justifyContent: "space-around", marginTop: 4 },
+  statChip: { flex: 1, alignItems: "center", gap: 3 },
   statIcon: { fontSize: 18 },
-  statValue: { fontSize: 17 },
+  statValue: { fontSize: 16 },
   statLabel: { fontSize: 11 },
-  statDivider: {
-    width: 1,
-    height: 36,
-  },
-
-  /* Friends strip */
-  section: {
-    marginTop: 20,
-    gap: 12,
-  },
-  sectionHeader: {
-    paddingHorizontal: 20,
-    gap: 2,
-  },
+  divider: { width: 1, height: 36 },
+  navRow: { flexDirection: "row", paddingHorizontal: 20, gap: 10, marginTop: 20 },
+  navCard: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 14, borderRadius: 16, borderWidth: 1, gap: 6, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 1 },
+  navIcon: { fontSize: 22 },
+  navLabel: { fontSize: 12 },
+  section: { marginTop: 20, gap: 12 },
+  sectionHeader: { paddingHorizontal: 20, alignItems: "center", justifyContent: "space-between" },
   sectionTitle: { fontSize: 17 },
   sectionSub: { fontSize: 13 },
-
-  /* Weekly chart card */
-  card: {
-    marginTop: 20,
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 18,
-    gap: 14,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
-  },
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
+  card: { borderRadius: 20, borderWidth: 1, padding: 18, gap: 14, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
+  cardHeader: { alignItems: "center", justifyContent: "space-between" },
   cardTitle: { fontSize: 16 },
   cardSub: { fontSize: 12, marginTop: 2 },
-  weekBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  weekBadgeText: { fontSize: 12 },
-
-  modeBanner: {
-    marginTop: 12,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
+  goalsChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
+  goalsChipText: { fontSize: 12 },
+  modeBanner: { borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12 },
   modeBannerText: { fontSize: 13 },
-
-  refreshBtn: {
-    marginTop: 12,
-    alignItems: "center",
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
+  refreshBtn: { alignItems: "center", paddingVertical: 12, borderRadius: 12, borderWidth: 1 },
   refreshText: { fontSize: 13 },
 });
