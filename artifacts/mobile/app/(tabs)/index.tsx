@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
   bannerText: { fontSize: 12, lineHeight: 17 },
   ringZone: { flex: 1, alignItems: "center", justifyContent: "center" },
   loadingArea: { alignItems: "center", justifyContent: "center" },
-  statsRow: { alignItems: "center", justifyContent: "space-around", paddingVertical: 10, paddingHorizontal: 16 },
+  statsRow: { alignItems: "center", justifyContent: "space-around", paddingVertical: 6, paddingHorizontal: 16 },
   statChip: { flex: 1, alignItems: "center", gap: 2 },
   statIcon: { fontSize: 16 },
   statValue: { fontSize: 15 },

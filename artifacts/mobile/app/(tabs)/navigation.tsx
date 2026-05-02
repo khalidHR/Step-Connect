@@ -88,23 +88,44 @@ export default function NavigationScreen() {
         <View style={{ width: 36 }} />
       </View>
 
-      {/* Profile snapshot */}
+      {/* Profile hero card */}
       <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border, marginHorizontal: 20 }]}>
-        <View style={[styles.avatar, { backgroundColor: user.color }]}>
-          <Text style={[styles.avatarText, { fontFamily: "Inter_700Bold" }]}>{user.initials}</Text>
-        </View>
-        <View style={styles.profileInfo}>
-          <Text style={[styles.profileName, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
-            {user.name}
-          </Text>
-          <View style={styles.statsRow}>
-            {stats.map((s, i) => (
-              <View key={i} style={styles.statItem}>
-                <Text style={[styles.statVal, { color: colors.primary, fontFamily: "Inter_700Bold" }]}>{s.value}</Text>
-                <Text style={[styles.statLbl, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>{s.label}</Text>
-              </View>
-            ))}
+        {/* Avatar + name row */}
+        <View style={styles.profileTop}>
+          <LinearGradient
+            colors={[user.color + "33", user.color + "11"]}
+            style={[styles.avatarRing, { borderColor: user.color + "55" }]}
+          >
+            <View style={[styles.avatar, { backgroundColor: user.color }]}>
+              <Text style={[styles.avatarText, { fontFamily: "Inter_700Bold" }]}>{user.initials}</Text>
+            </View>
+          </LinearGradient>
+          <View style={styles.profileMeta}>
+            <Text style={[styles.profileName, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>
+              {user.name}
+            </Text>
+            <View style={[styles.activeBadge, { backgroundColor: colors.accent }]}>
+              <View style={[styles.activeDot, { backgroundColor: colors.primary }]} />
+              <Text style={[styles.activeText, { color: colors.primary, fontFamily: "Inter_500Medium" }]}>
+                {isRTL ? "نشط اليوم" : "Active today"}
+              </Text>
+            </View>
           </View>
+        </View>
+
+        {/* Stat tiles */}
+        <View style={styles.statGrid}>
+          {[
+            { emoji: "👣", value: user.steps.today.toLocaleString(), label: isRTL ? "خطوات اليوم" : "Today's Steps", bg: colors.primary + "15", val: colors.primary },
+            { emoji: "👥", value: friends.length.toString(), label: isRTL ? "الأصدقاء" : "Friends", bg: "#6366f115", val: "#6366f1" },
+            { emoji: "🔥", value: user.steps.streak > 0 ? `${user.steps.streak}d` : "—", label: isRTL ? "الأيام المتواصلة" : "Streak", bg: "#f59e0b15", val: "#f59e0b" },
+          ].map((s, i) => (
+            <View key={i} style={[styles.statTile, { backgroundColor: s.bg }]}>
+              <Text style={styles.tileEmoji}>{s.emoji}</Text>
+              <Text style={[styles.tileVal, { color: s.val, fontFamily: "Inter_700Bold" }]}>{s.value}</Text>
+              <Text style={[styles.tileLbl, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>{s.label}</Text>
+            </View>
+          ))}
         </View>
       </View>
 
@@ -171,34 +192,67 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 20 },
   profileCard: {
-    borderRadius: 20,
+    borderRadius: 22,
     borderWidth: 1,
     padding: 18,
+    gap: 16,
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
+  profileTop: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 16,
-    marginBottom: 24,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+    gap: 14,
   },
-  avatar: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
+  avatarRing: {
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+    borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
   },
+  avatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   avatarText: { color: "#fff", fontSize: 20 },
-  profileInfo: { flex: 1, gap: 8 },
-  profileName: { fontSize: 18 },
-  statsRow: { flexDirection: "row", gap: 16 },
-  statItem: { alignItems: "center", gap: 1 },
-  statVal: { fontSize: 15 },
-  statLbl: { fontSize: 10 },
+  profileMeta: { flex: 1, gap: 6 },
+  profileName: { fontSize: 20 },
+  activeBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    alignSelf: "flex-start",
+  },
+  activeDot: { width: 6, height: 6, borderRadius: 3 },
+  activeText: { fontSize: 12 },
+  statGrid: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  statTile: {
+    flex: 1,
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    alignItems: "center",
+    gap: 5,
+  },
+  tileEmoji: { fontSize: 20 },
+  tileVal: { fontSize: 17 },
+  tileLbl: { fontSize: 10, textAlign: "center" },
   navList: {
     paddingHorizontal: 20,
     gap: 12,
